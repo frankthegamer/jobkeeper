@@ -43,12 +43,13 @@ A **lightweight, offline-first web app** to track jobs, assign names, mark compl
 ---
 
 ## File Structure
-
+'''
 job-keeper/
 ├─ index.html # Main app file
 ├─ manifest.webmanifest # PWA manifest
 ├─ sw.js # Service worker for offline support
 └─ README.md
+'''
 
 ---
 
