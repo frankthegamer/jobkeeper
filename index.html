@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Job Keeper - track jobs, names, and completion status." />
+  <meta name="theme-color" content="#0b0f19" />
+  <title>Job Keeper</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Job Keeper" />
+
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --muted: #8ea0c3;
+      --text: #e8eeff;
+      --line: rgba(255,255,255,0.10);
+      --good: #2ee59d;
+      --bad: #ff5b7a;
+      --btn: #1f2b45;
+      --btn2: #22345c;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: radial-gradient(1200px 800px at 20% 0%, #162247 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .wrap { max-width: 960px; margin: 0 auto; }
+
+    header {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    h1 { margin: 0; font-size: 28px; letter-spacing: 0.3px; }
+    .sub { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+      backdrop-filter: blur(8px);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1.6fr 1fr auto;
+      gap: 10px;
+    }
+
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 12px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,0.25);
+      color: var(--text);
+      outline: none;
+    }
+
+    input::placeholder, textarea::placeholder { color: rgba(232,238,255,0.35); }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: var(--btn);
+      color: var(--text);
+      padding: 12px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 700;
+      white-space: nowrap;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn.primary { background: var(--btn2); }
+    .btn:active { transform: translateY(1px); }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .stats {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .pill {
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,0.18);
+      padding: 6px 10px;
+      border-radius: 999px;
+    }
+
+    .list { margin-top: 14px; display: grid; gap: 10px; }
+
+    .job {
+      display: grid;
+      grid-template-columns: 1.2fr 1.6fr 0.9fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,0.18);
+    }
+
+    .title { font-weight: 900; letter-spacing: 0.3px; }
+    .names {
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .status {
+      font-weight: 900;
+      padding: 6px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      justify-content: center;
+      width: fit-content;
+      border: 1px solid var(--line);
+    }
+
+    .status.complete {
+      color: #041b11;
+      background: rgba(46,229,157,0.95);
+      border-color: rgba(46,229,157,0.35);
+    }
+
+    .status.incomplete {
+      color: #2b0812;
+      background: rgba(255,91,122,0.95);
+      border-color: rgba(255,91,122,0.35);
+    }
+
+    .actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+    .btn.small { padding: 10px 12px; font-size: 13px; }
+    .btn.danger { background: rgba(255, 91, 122, 0.12); border-color: rgba(255, 91, 122, 0.25); }
+    .btn.good { background: rgba(46, 229, 157, 0.12); border-color: rgba(46, 229, 157, 0.25); }
+
+    .muted { color: var(--muted); font-size: 13px; }
+
+    textarea {
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    @media (max-width: 820px) {
+      .grid { grid-template-columns: 1fr; }
+      .job { grid-template-columns: 1fr; }
+      .actions { justify-content: flex-start; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Job Keeper</h1>
+        <p class="sub">Track jobs by number, add names, mark complete. Saved on this device.</p>
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn" id="exportBtn">Export</button>
+        <button class="btn" id="importBtn">Import</button>
+        <button class="btn" id="clearAllBtn">Clear All</button>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="grid">
+        <div>
+          <label for="jobNumber">Job Number</label>
+          <input id="jobNumber" inputmode="numeric" placeholder="e.g. 10492" />
+        </div>
+
+        <div>
+          <label for="jobNames">Name(s)</label>
+          <input id="jobNames" placeholder="e.g. Alex, Jordan, Sam" />
+        </div>
+
+        <div>
+          <label for="jobStatus">Status</label>
+          <select id="jobStatus">
+            <option value="incomplete">Not Complete</option>
+            <option value="complete">Complete</option>
+          </select>
+        </div>
+
+        <div style="display:flex; align-items:end;">
+          <button class="btn primary" id="addBtn" style="width:100%;">Add Job</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="stats" id="stats"></div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <input id="search" placeholder="Search job # or names..." style="min-width: 260px;" />
+          <select id="filter">
+            <option value="all">All</option>
+            <option value="incomplete">Not Complete</option>
+            <option value="complete">Complete</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Boss Update -->
+    <div class="card" style="margin-top:14px;">
+      <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; justify-content:space-between;">
+        <div>
+          <div style="font-weight:900; font-size:16px;">Boss Update</div>
+          <div class="muted" style="margin-top:4px;">Generate a text-ready summary of jobs.</div>
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <select id="rangeSelect">
+            <option value="today">Today</option>
+            <option value="24h">Last 24 hours</option>
+            <option value="7d" selected>Last 7 days</option>
+            <option value="all">All time</option>
+          </select>
+
+          <button class="btn" id="copyUpdateBtn">Copy</button>
+          <a class="btn primary" id="textUpdateBtn" href="#">Text</a>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <label for="bossPreview">Preview</label>
+        <textarea id="bossPreview" rows="10"></textarea>
+      </div>
+    </div>
+
+    <div class="list" id="list"></div>
+
+    <p class="muted" style="margin-top:14px;">
+      PWA Tip: Open in Safari → Share → Add to Home Screen.
+    </p>
+  </div>
+
+  <input id="fileInput" type="file" accept="application/json" style="display:none;" />
+
+  <script>
+    (function () {
+      // PWA offline
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("./sw.js");
+        });
+      }
+
+      var STORAGE_KEY = "job_keeper_pwa_v2";
+
+      var jobNumberEl = document.getElementById("jobNumber");
+      var jobNamesEl = document.getElementById("jobNames");
+      var jobStatusEl = document.getElementById("jobStatus");
+      var addBtn = document.getElementById("addBtn");
+      var listEl = document.getElementById("list");
+      var statsEl = document.getElementById("stats");
+      var searchEl = document.getElementById("search");
+      var filterEl = document.getElementById("filter");
+      var clearAllBtn = document.getElementById("clearAllBtn");
+      var exportBtn = document.getElementById("exportBtn");
+      var importBtn = document.getElementById("importBtn");
+      var fileInput = document.getElementById("fileInput");
+
+      // Boss update
+      var rangeSelect = document.getElementById("rangeSelect");
+      var copyUpdateBtn = document.getElementById("copyUpdateBtn");
+      var textUpdateBtn = document.getElementById("textUpdateBtn");
+      var bossPreview = document.getElementById("bossPreview");
+
+      var jobs = loadJobs();
+
+      function loadJobs() {
+        try {
+          var raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : [];
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function saveJobs() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
+        } catch (e) {
+          alert("Your browser is blocking storage. Try opening in Safari/Chrome.");
+        }
+      }
+
+      function uid() {
+        return Math.random().toString(16).slice(2) + Date.now().toString(16);
+      }
+
+      function normalize(s) {
+        return (s || "").replace(/^\s+|\s+$/g, "");
+      }
+
+      function escapeHtml(str) {
+        return (str || "")
+          .split("&").join("&amp;")
+          .split("<").join("&lt;")
+          .split(">").join("&gt;")
+          .split('"').join("&quot;")
+          .split("'").join("&#039;");
+      }
+
+      function addJob() {
+        var jobNumber = normalize(jobNumberEl.value);
+        var names = normalize(jobNamesEl.value);
+        var status = jobStatusEl.value;
+
+        if (!jobNumber) {
+          alert("Put a Job Number first 👀");
+          jobNumberEl.focus();
+          return;
+        }
+
+        var job = {
+          id: uid(),
+          jobNumber: jobNumber,
+          names: names,
+          status: status,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+
+        jobs.unshift(job);
+        saveJobs();
+
+        jobNumberEl.value = "";
+        jobNamesEl.value = "";
+        jobStatusEl.value = "incomplete";
+        jobNumberEl.focus();
+
+        render();
+      }
+
+      function deleteJob(id) {
+        jobs = jobs.filter(function (j) { return j.id !== id; });
+        saveJobs();
+        render();
+      }
+
+      function toggleStatus(id) {
+        for (var i = 0; i < jobs.length; i++) {
+          if (jobs[i].id === id) {
+            jobs[i].status = jobs[i].status === "complete" ? "incomplete" : "complete";
+            jobs[i].updatedAt = Date.now();
+            break;
+          }
+        }
+        saveJobs();
+        render();
+      }
+
+      function editJob(id) {
+        var j = null;
+        for (var i = 0; i < jobs.length; i++) {
+          if (jobs[i].id === id) { j = jobs[i]; break; }
+        }
+        if (!j) return;
+
+        var newNumber = prompt("Edit Job Number:", j.jobNumber);
+        if (newNumber === null) return;
+
+        var newNames = prompt("Edit Name(s):", j.names || "");
+        if (newNames === null) return;
+
+        j.jobNumber = normalize(newNumber);
+        j.names = normalize(newNames);
+        j.updatedAt = Date.now();
+
+        saveJobs();
+        render();
+      }
+
+      function getVisibleJobs() {
+        var q = normalize(searchEl.value).toLowerCase();
+        var filter = filterEl.value;
+
+        return jobs.filter(function (j) {
+          var jobNumber = (j.jobNumber || "").toLowerCase();
+          var names = (j.names || "").toLowerCase();
+
+          var matchesSearch = !q || jobNumber.indexOf(q) !== -1 || names.indexOf(q) !== -1;
+          var matchesFilter = filter === "all" ? true : j.status === filter;
+
+          return matchesSearch && matchesFilter;
+        });
+      }
+
+      function renderStats() {
+        var total = jobs.length;
+        var complete = jobs.filter(function (j) { return j.status === "complete"; }).length;
+        var incomplete = total - complete;
+
+        statsEl.innerHTML =
+          '<span class="pill">Total: <b>' + total + '</b></span>' +
+          '<span class="pill">Complete: <b>' + complete + '</b></span>' +
+          '<span class="pill">Not Complete: <b>' + incomplete + '</b></span>';
+      }
+
+      function getRangeStartTimestamp() {
+        var now = Date.now();
+        var choice = rangeSelect.value;
+
+        if (choice === "today") {
+          var d = new Date();
+          d.setHours(0, 0, 0, 0);
+          return d.getTime();
+        }
+
+        if (choice === "24h") return now - (24 * 60 * 60 * 1000);
+        if (choice === "7d") return now - (7 * 24 * 60 * 60 * 1000);
+
+        return 0;
+      }
+
+      function buildBossUpdateText() {
+        var start = getRangeStartTimestamp();
+
+        var inRange = jobs.filter(function (j) {
+          return (j.updatedAt || j.createdAt || 0) >= start;
+        });
+
+        var completed = inRange.filter(function (j) { return j.status === "complete"; });
+        var pending = inRange.filter(function (j) { return j.status !== "complete"; });
+
+        inRange.sort(function (a, b) {
+          return (b.updatedAt || 0) - (a.updatedAt || 0);
+        });
+
+        function formatJobLine(j) {
+          var nm = j.names ? (" — " + j.names) : "";
+          return "- Job #" + j.jobNumber + nm;
+        }
+
+        var rangeLabel = "";
+        if (rangeSelect.value === "today") rangeLabel = "Today";
+        else if (rangeSelect.value === "24h") rangeLabel = "Last 24 hours";
+        else if (rangeSelect.value === "7d") rangeLabel = "Last 7 days";
+        else rangeLabel = "All time";
+
+        var lines = [];
+        lines.push("Jobs Update (" + rangeLabel + ")");
+        lines.push("✅ Completed: " + completed.length);
+        lines.push("❌ Pending: " + pending.length);
+        lines.push("");
+
+        if (completed.length) {
+          lines.push("Completed:");
+          for (var i = 0; i < completed.length; i++) lines.push(formatJobLine(completed[i]));
+          lines.push("");
+        }
+
+        if (pending.length) {
+          lines.push("Pending:");
+          for (var j = 0; j < pending.length; j++) lines.push(formatJobLine(pending[j]));
+        }
+
+        if (!completed.length && !pending.length) {
+          lines.push("No jobs updated in this time range.");
+        }
+
+        return lines.join("\n");
+      }
+
+      function refreshBossPreview() {
+        bossPreview.value = buildBossUpdateText();
+        var encoded = encodeURIComponent(bossPreview.value);
+        textUpdateBtn.href = "sms:&body=" + encoded;
+      }
+
+      function fallbackCopy() {
+        bossPreview.focus();
+        bossPreview.select();
+        document.execCommand("copy");
+        alert("Copied 👍");
+      }
+
+      function render() {
+        renderStats();
+
+        var visible = getVisibleJobs();
+
+        if (visible.length === 0) {
+          listEl.innerHTML =
+            '<div class="card">' +
+              '<div style="font-weight:900;">No jobs found.</div>' +
+              '<div class="muted" style="margin-top:6px;">Add a job above or change your search/filter.</div>' +
+            '</div>';
+
+          refreshBossPreview();
+          return;
+        }
+
+        var html = "";
+        for (var i = 0; i < visible.length; i++) {
+          var j = visible[i];
+          var statusClass = j.status === "complete" ? "complete" : "incomplete";
+          var statusText = j.status === "complete" ? "Complete" : "Not Complete";
+
+          html +=
+            '<div class="job">' +
+              '<div>' +
+                '<div class="title">Job #' + escapeHtml(j.jobNumber) + '</div>' +
+                '<div class="muted">Updated: ' + new Date(j.updatedAt).toLocaleString() + '</div>' +
+              '</div>' +
+
+              '<div class="names" title="' + escapeHtml(j.names || "") + '">' +
+                (j.names ? escapeHtml(j.names) : "<span class='muted'>No names</span>") +
+              '</div>' +
+
+              '<div>' +
+                '<span class="status ' + statusClass + '">' + statusText + '</span>' +
+              '</div>' +
+
+              '<div class="actions">' +
+                '<button class="btn small good" data-action="toggle" data-id="' + j.id + '">Toggle</button>' +
+                '<button class="btn small" data-action="edit" data-id="' + j.id + '">Edit</button>' +
+                '<button class="btn small danger" data-action="delete" data-id="' + j.id + '">Delete</button>' +
+              '</div>' +
+            '</div>';
+        }
+
+        listEl.innerHTML = html;
+
+        refreshBossPreview();
+      }
+
+      // Delegated list button handling
+      listEl.addEventListener("click", function (e) {
+        var btn = e.target.closest("button");
+        if (!btn) return;
+
+        var action = btn.getAttribute("data-action");
+        var id = btn.getAttribute("data-id");
+        if (!action || !id) return;
+
+        if (action === "toggle") toggleStatus(id);
+        if (action === "edit") editJob(id);
+        if (action === "delete") deleteJob(id);
+      });
+
+      addBtn.addEventListener("click", addJob);
+
+      jobNumberEl.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") addJob();
+      });
+      jobNamesEl.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") addJob();
+      });
+
+      searchEl.addEventListener("input", render);
+      filterEl.addEventListener("change", render);
+
+      rangeSelect.addEventListener("change", refreshBossPreview);
+
+      copyUpdateBtn.addEventListener("click", function () {
+        var text = bossPreview.value;
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function () {
+            alert("Copied 👍");
+          }).catch(function () {
+            fallbackCopy();
+          });
+        } else {
+          fallbackCopy();
+        }
+      });
+
+      clearAllBtn.addEventListener("click", function () {
+        if (!jobs.length) return;
+        var ok = confirm("Clear ALL jobs? This can't be undone.");
+        if (!ok) return;
+        jobs = [];
+        saveJobs();
+        render();
+      });
+
+      exportBtn.addEventListener("click", function () {
+        var payload = {
+          version: 2,
+          exportedAt: new Date().toISOString(),
+          jobs: jobs
+        };
+
+        var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        var url = URL.createObjectURL(blob);
+
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "job-keeper-backup.json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        setTimeout(function () {
+          URL.revokeObjectURL(url);
+        }, 1000);
+      });
+
+      importBtn.addEventListener("click", function () {
+        fileInput.value = "";
+        fileInput.click();
+      });
+
+      fileInput.addEventListener("change", function () {
+        var file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+
+        var reader = new FileReader();
+        reader.onload = function () {
+          try {
+            var data = JSON.parse(reader.result);
+
+            if (!data || !data.jobs || !Array.isArray(data.jobs)) {
+              alert("That file doesn't look like a Job Keeper backup.");
+              return;
+            }
+
+            var ok = confirm("Import will replace your current jobs. Continue?");
+            if (!ok) return;
+
+            jobs = data.jobs;
+            saveJobs();
+            render();
+          } catch (e) {
+            alert("Could not import. File might be corrupted.");
+          }
+        };
+        reader.readAsText(file);
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
