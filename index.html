@@ -178,10 +178,22 @@
       line-height: 1.35;
     }
 
+    .dateGrid {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .dateBlock {
+      min-width: 140px;
+    }
+
     @media (max-width: 820px) {
       .grid { grid-template-columns: 1fr; }
       .job { grid-template-columns: 1fr; }
       .actions { justify-content: flex-start; }
+      .dateBlock { min-width: 46%; }
     }
   </style>
 </head>
@@ -245,21 +257,21 @@
       <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; justify-content:space-between;">
         <div>
           <div style="font-weight:900; font-size:16px;">Boss Update</div>
-          <div class="muted" style="margin-top:4px;">Generate a text-ready summary of jobs.</div>
+          <div class="muted" style="margin-top:4px;">Pick a date range and generate a text-ready summary.</div>
         </div>
 
-        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-  <div>
-    <label for="startDate" style="margin-bottom:4px;">Start</label>
-    <input id="startDate" type="date" />
-  </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+          <div class="dateGrid">
+            <div class="dateBlock">
+              <label for="startDate" style="margin-bottom:4px;">Start</label>
+              <input id="startDate" type="date" />
+            </div>
 
-  <div>
-    <label for="endDate" style="margin-bottom:4px;">End</label>
-    <input id="endDate" type="date" />
-  </div>
-</div>
+            <div class="dateBlock">
+              <label for="endDate" style="margin-bottom:4px;">End</label>
+              <input id="endDate" type="date" />
+            </div>
+          </div>
 
           <button class="btn" id="copyUpdateBtn">Copy</button>
           <a class="btn primary" id="textUpdateBtn" href="#">Text</a>
@@ -290,7 +302,7 @@
         });
       }
 
-      var STORAGE_KEY = "job_keeper_pwa_v2";
+      var STORAGE_KEY = "job_keeper_pwa_v3";
 
       var jobNumberEl = document.getElementById("jobNumber");
       var jobNamesEl = document.getElementById("jobNames");
@@ -305,8 +317,9 @@
       var importBtn = document.getElementById("importBtn");
       var fileInput = document.getElementById("fileInput");
 
-      // Boss update
-      var rangeSelect = document.getElementById("rangeSelect");
+      // Boss update (date range)
+      var startDateEl = document.getElementById("startDate");
+      var endDateEl = document.getElementById("endDate");
       var copyUpdateBtn = document.getElementById("copyUpdateBtn");
       var textUpdateBtn = document.getElementById("textUpdateBtn");
       var bossPreview = document.getElementById("bossPreview");
@@ -443,27 +456,75 @@
           '<span class="pill">Not Complete: <b>' + incomplete + '</b></span>';
       }
 
-      function getRangeStartTimestamp() {
-        var now = Date.now();
-        var choice = rangeSelect.value;
+      // ---- Boss update helpers ----
 
-        if (choice === "today") {
-          var d = new Date();
-          d.setHours(0, 0, 0, 0);
-          return d.getTime();
+      function startOfDay(ts) {
+        var d = new Date(ts);
+        d.setHours(0, 0, 0, 0);
+        return d.getTime();
+      }
+
+      function endOfDay(ts) {
+        var d = new Date(ts);
+        d.setHours(23, 59, 59, 999);
+        return d.getTime();
+      }
+
+      function parseDateInput(val) {
+        // val is "YYYY-MM-DD"
+        if (!val) return null;
+        var parts = val.split("-");
+        if (parts.length !== 3) return null;
+
+        var y = parseInt(parts[0], 10);
+        var m = parseInt(parts[1], 10) - 1;
+        var d = parseInt(parts[2], 10);
+
+        return new Date(y, m, d).getTime();
+      }
+
+      function getSelectedRange() {
+        var startRaw = parseDateInput(startDateEl.value);
+        var endRaw = parseDateInput(endDateEl.value);
+
+        // If user hasn't picked dates, default to last 7 days
+        if (startRaw === null || endRaw === null) {
+          var now = Date.now();
+          var sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
+
+          return {
+            start: startOfDay(sevenDaysAgo),
+            end: endOfDay(now),
+            label: "Last 7 days"
+          };
         }
 
-        if (choice === "24h") return now - (24 * 60 * 60 * 1000);
-        if (choice === "7d") return now - (7 * 24 * 60 * 60 * 1000);
+        var start = startOfDay(startRaw);
+        var end = endOfDay(endRaw);
 
-        return 0;
+        // Normalize if picked backwards
+        if (start > end) {
+          var tmp = start;
+          start = end;
+          end = tmp;
+        }
+
+        var startLabel = new Date(start).toLocaleDateString();
+        var endLabel = new Date(end).toLocaleDateString();
+
+        return {
+          start: start,
+          end: end,
+          label: startLabel + " → " + endLabel
+        };
       }
 
       function buildBossUpdateText() {
-        var start = getRangeStartTimestamp();
+        var r = getSelectedRange();
 
         var inRange = jobs.filter(function (j) {
-          return (j.updatedAt || j.createdAt || 0) >= start;
+          var t = (j.updatedAt || j.createdAt || 0);
+          return t >= r.start && t <= r.end;
         });
 
         var completed = inRange.filter(function (j) { return j.status === "complete"; });
@@ -478,14 +539,8 @@
           return "- Job #" + j.jobNumber + nm;
         }
 
-        var rangeLabel = "";
-        if (rangeSelect.value === "today") rangeLabel = "Today";
-        else if (rangeSelect.value === "24h") rangeLabel = "Last 24 hours";
-        else if (rangeSelect.value === "7d") rangeLabel = "Last 7 days";
-        else rangeLabel = "All time";
-
         var lines = [];
-        lines.push("Jobs Update (" + rangeLabel + ")");
+        lines.push("Jobs Update (" + r.label + ")");
         lines.push("✅ Completed: " + completed.length);
         lines.push("❌ Pending: " + pending.length);
         lines.push("");
@@ -502,7 +557,7 @@
         }
 
         if (!completed.length && !pending.length) {
-          lines.push("No jobs updated in this time range.");
+          lines.push("No jobs updated in this date range.");
         }
 
         return lines.join("\n");
@@ -514,12 +569,32 @@
         textUpdateBtn.href = "sms:&body=" + encoded;
       }
 
+      function setDefaultDatesIfEmpty() {
+        if (startDateEl.value || endDateEl.value) return;
+
+        var now = new Date();
+        var end = new Date(now);
+        var start = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+
+        function toInputDate(d) {
+          var y = d.getFullYear();
+          var m = String(d.getMonth() + 1).padStart(2, "0");
+          var day = String(d.getDate()).padStart(2, "0");
+          return y + "-" + m + "-" + day;
+        }
+
+        startDateEl.value = toInputDate(start);
+        endDateEl.value = toInputDate(end);
+      }
+
       function fallbackCopy() {
         bossPreview.focus();
         bossPreview.select();
         document.execCommand("copy");
         alert("Copied 👍");
       }
+
+      // ---- render ----
 
       function render() {
         renderStats();
@@ -567,7 +642,6 @@
         }
 
         listEl.innerHTML = html;
-
         refreshBossPreview();
       }
 
@@ -597,7 +671,8 @@
       searchEl.addEventListener("input", render);
       filterEl.addEventListener("change", render);
 
-      rangeSelect.addEventListener("change", refreshBossPreview);
+      startDateEl.addEventListener("change", refreshBossPreview);
+      endDateEl.addEventListener("change", refreshBossPreview);
 
       copyUpdateBtn.addEventListener("click", function () {
         var text = bossPreview.value;
@@ -624,7 +699,7 @@
 
       exportBtn.addEventListener("click", function () {
         var payload = {
-          version: 2,
+          version: 3,
           exportedAt: new Date().toISOString(),
           jobs: jobs
         };
@@ -676,6 +751,8 @@
         reader.readAsText(file);
       });
 
+      // init
+      setDefaultDatesIfEmpty();
       render();
     })();
   </script>
