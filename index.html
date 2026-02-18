@@ -249,12 +249,17 @@
         </div>
 
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-          <select id="rangeSelect">
-            <option value="today">Today</option>
-            <option value="24h">Last 24 hours</option>
-            <option value="7d" selected>Last 7 days</option>
-            <option value="all">All time</option>
-          </select>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+  <div>
+    <label for="startDate" style="margin-bottom:4px;">Start</label>
+    <input id="startDate" type="date" />
+  </div>
+
+  <div>
+    <label for="endDate" style="margin-bottom:4px;">End</label>
+    <input id="endDate" type="date" />
+  </div>
+</div>
 
           <button class="btn" id="copyUpdateBtn">Copy</button>
           <a class="btn primary" id="textUpdateBtn" href="#">Text</a>
